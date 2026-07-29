@@ -16,6 +16,6 @@ jobs:
       - run: |
           git config user.name "mf-agent-bot"
           git config user.email "bot@example.com"
-          git add output snapshots family_id_cache.json
+          git add output snapshots family_id_cache.json 2>/dev/null || true
           git commit -m "Monthly conviction list $(date +%Y-%m)" || echo "nothing to commit"
           git push
