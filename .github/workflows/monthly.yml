@@ -12,7 +12,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements.txt
-      - run: python mf_conviction_agent.py
+      - run: python mf_conviction_agent_amfi.py --inspect-only
       - run: |
           git config user.name "mf-agent-bot"
           git config user.email "bot@example.com"
