@@ -62,7 +62,8 @@ SESSION.headers.update({"User-Agent": "mf-conviction-agent/1.0 (personal researc
 
 def api_get(path, params=None, debug=False):
     url = f"{BASE_URL}{path}"
-    for attempt in range(3):
+    attempts = 4
+    for attempt in range(attempts):
         try:
             resp = SESSION.get(url, params=params, timeout=20)
             if debug:
@@ -73,9 +74,15 @@ def api_get(path, params=None, debug=False):
                 print(json.dumps(data, indent=2)[:2000])
             return data
         except requests.exceptions.RequestException as e:
-            print(f"  ! request failed (attempt {attempt + 1}/3): {e}")
-            time.sleep(2)
-    raise RuntimeError(f"Could not reach {url} after 3 attempts")
+            print(f"  ! request failed (attempt {attempt + 1}/{attempts}): {e}")
+            if attempt < attempts - 1:
+                time.sleep(5 * (attempt + 1))  # 5s, 10s, 15s backoff
+    raise RuntimeError(
+        f"Could not reach {url} after {attempts} attempts. "
+        f"mfdata.in may be temporarily down — this is common for a small "
+        f"free API. The GitHub Action is scheduled to retry daily, so no "
+        f"action needed unless it's still failing after several days."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -289,6 +296,15 @@ def main():
     args = parser.parse_args()
 
     month_str = datetime.date.today().strftime("%Y-%m")
+
+    # If this month's output already exists, we've already succeeded this
+    # month (e.g. an earlier retry worked). Skip re-running so we don't
+    # waste calls or risk overwriting a good snapshot with a partial one.
+    existing_output = os.path.join(OUTPUT_DIR, f"conviction_list_{month_str}.csv")
+    if os.path.exists(existing_output) and not args.debug:
+        print(f"{existing_output} already exists — this month's run already "
+              f"succeeded. Skipping (delete the file if you want to force a re-run).")
+        sys.exit(0)
 
     print(f"Run month: {month_str}")
     print("Resolving fund -> family_id mappings...")
