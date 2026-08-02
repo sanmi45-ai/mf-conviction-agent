@@ -148,10 +148,17 @@ def fetch_nippon_india(debug=False):
         # Fallback: just grab hrefs near the text "Monthly portfolio"
         idx = html.lower().find("monthly portfolio")
         if idx == -1:
+            if debug:
+                log(f"    [debug:nippon] page length: {len(html)} chars. "
+                    f"'monthly portfolio' text not found anywhere on the page.")
+                log(f"    [debug:nippon] first 1500 chars of page:\n{html[:1500]}")
             raise RuntimeError("Could not find 'Monthly portfolio' text on Nippon India's page at all.")
         window = html[idx: idx + 1500]
         m2 = re.search(r'href="([^"]+\.xlsx?)"', window)
         if not m2:
+            if debug:
+                log(f"    [debug:nippon] found 'monthly portfolio' text at char {idx}, "
+                    f"but no .xls href within next 1500 chars. Raw window:\n{window}")
             raise RuntimeError("Found 'Monthly portfolio' text but no .xls link nearby. "
                                 "Site structure may have changed -- run --debug and inspect.")
         file_url = m2.group(1)
@@ -194,9 +201,21 @@ def fetch_quant(debug=False):
     # and "monthly" -- best effort, may need calibration.
     candidates = re.findall(r'href="([^"]+\.xlsx?)"[^>]*>([^<]*)</a>', html, re.IGNORECASE)
     if debug:
+        log(f"    [debug:quant] page length: {len(html)} chars")
         log(f"    [debug:quant] found {len(candidates)} total xls/xlsx links on page")
         for href, text in candidates[:20]:
             log(f"      {text.strip()[:60]!r} -> {href}")
+        if len(candidates) == 0:
+            xls_mentions = len(re.findall(r'\.xlsx?', html, re.IGNORECASE))
+            log(f"    [debug:quant] raw '.xls'/.xlsx' substring occurrences anywhere in page: {xls_mentions}")
+            idx = html.upper().find("MONTHLY PORTFOLIO")
+            if idx != -1:
+                log(f"    [debug:quant] raw HTML window around 'MONTHLY PORTFOLIO' text:\n"
+                    f"{html[idx:idx+2000]}")
+            else:
+                log(f"    [debug:quant] 'MONTHLY PORTFOLIO' text not found in raw HTML at all "
+                    f"(page may render this section via JavaScript after load).")
+                log(f"    [debug:quant] first 1500 chars of raw page:\n{html[:1500]}")
 
     scored = [
         (href, text) for href, text in candidates
