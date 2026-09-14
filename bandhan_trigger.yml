@@ -1,0 +1,38 @@
+name: Bandhan upload -> updated report
+on:
+  push:
+    paths:
+      - 'manual_downloads/**'
+  workflow_dispatch: {}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: playwright install --with-deps chromium
+      - run: python mf_conviction_agent_final.py --mode=bandhan --debug
+        continue-on-error: true
+        id: run_agent
+        env:
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debug-artifacts-bandhan-${{ github.run_number }}
+          path: debug_artifacts/
+          if-no-files-found: ignore
+      - name: Fail the job if the script failed
+        if: steps.run_agent.outcome == 'failure'
+        run: exit 1
+      - run: |
+          git config user.name "mf-agent-bot"
+          git config user.email "bot@example.com"
+          git add output snapshots bandhan_processed_markers 2>/dev/null || true
+          git commit -m "Bandhan-updated report $(date +%Y-%m)" || echo "nothing to commit"
+          git push
